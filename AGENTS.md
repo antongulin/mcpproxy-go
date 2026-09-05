@@ -25,6 +25,9 @@
 - Name Go tests `TestFeatureScenario`; snapshot or fixture data belong under `tests/` with explicit prefixes.
 
 ## Commit & Pull Request Guidelines
+
+Start every session by inspecting Git status and worktrees, fetching origin with pruning, safely fast-forwarding local main, and verifying main matches origin/main. Only then create a task branch from synchronized main if needed. Preserve existing task branches and unfinished work. Never reset, discard changes, auto-stash, or force-push merely to synchronize. If safe synchronization is blocked, resolve the blocker before editing or branching.
+
 - Use concise, imperative commit messages (e.g., `Fix upstream disable locking`); avoid AI co-author tags.
 - PR descriptions should summarize impact, list verification commands, and link relevant P# items or issues; attach UI screenshots or log excerpts when behavior changes.
 - Keep change scopes bounded to one surface (runtime vs. tray vs. web); document follow-up ideas in `IMPROVEMENTS.md`.
