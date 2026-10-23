@@ -6911,7 +6911,7 @@ func (p *MCPProxyServer) createToolErrorResponse(err error, serverName, toolName
 				}
 				err = redacted
 			} else {
-				err = errors.New(redactedToolArgumentError)
+				err = errors.New(redactedToolArgumentError) //nolint:staticcheck // ST1005: exact public MCP error sentence includes the terminal period.
 			}
 		}
 	}
