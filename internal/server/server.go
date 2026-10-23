@@ -1754,6 +1754,9 @@ func (s *Server) GetAllServers() ([]map[string]interface{}, error) {
 		if cfg != nil && cfg.TrustMode != "" {
 			serverMap["trust_mode"] = cfg.TrustMode
 		}
+		if cfg != nil && cfg.ToolArgumentErrorMode != "" {
+			serverMap["tool_argument_error_mode"] = cfg.ToolArgumentErrorMode
+		}
 
 		// GH #1145: automatic reconnection permanently given up. This is the
 		// projection the REST API actually serves (internal/server.Server is the
@@ -1892,6 +1895,9 @@ func (s *Server) getAllServersLegacy() ([]map[string]interface{}, error) {
 		// Spec 086: per-server trust tier in parity with the StateView path.
 		if server.TrustMode != "" {
 			serverMap["trust_mode"] = server.TrustMode
+		}
+		if server.ToolArgumentErrorMode != "" {
+			serverMap["tool_argument_error_mode"] = server.ToolArgumentErrorMode
 		}
 
 		result = append(result, serverMap)
@@ -2088,6 +2094,9 @@ func (s *Server) UpdateServer(ctx context.Context, serverName string, updates *c
 	// the leave-unchanged contract.
 	if updates.TrustMode != "" {
 		existing.TrustMode = updates.TrustMode
+	}
+	if updates.ToolArgumentErrorMode != "" {
+		existing.ToolArgumentErrorMode = updates.ToolArgumentErrorMode
 	}
 
 	// InitTimeout (MCP-3322) is a tri-state *Duration: nil means "leave

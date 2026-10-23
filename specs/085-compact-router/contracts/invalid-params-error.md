@@ -50,6 +50,16 @@ scenario 2).
   HTTP/JSON-RPC error shapes `createDetailedErrorResponse` already emits.
 - Returned via `mcp.NewToolResultError(json)` — same envelope as existing detailed errors.
 
+### Optional per-upstream redaction
+
+The persisted `tool_argument_error_mode` setting adds an opt-in policy. Empty/unset and `detailed` keep the error above. Explicit `redacted` changes only its `error` string to `Invalid tool arguments.`; the complete static schema, tool, error type, hint and outer `isError` stay intact in both response modes. Both dispatch error paths use the same server configuration captured by that request's `toolGate`.
+
+For an eligible upstream argument error without an indexed schema, redacted mode suppresses untrusted message/data and nested HTTP response-body details while preserving the existing envelope and any available numeric code. It adds no schema or repair hint and does not mutate the original error. The conservative upstream classifier still excludes authentication, HTTP transport, timeout and internal errors. See [configuration](../../../docs/configuration.md#tool-argument-errors) for update/reset semantics.
+
+Only redacted mode may classify the cause of the manager's exact top-level generic diagnostic wrapper. The wrapper preserves its previous error text and unwrap contract; other outer/authentication wrappers retain their context, and default/detailed rendering keeps its prior classification. The HTTP SDK currently discards numeric JSON-RPC code/data when converting to Go errors, so generic `Invalid params` wording alone remains noneligible. Typed code/data preservation tests cover MCPProxy's owned transport-error boundary; they do not establish end-to-end SDK preservation.
+
+The same cause-selection boundary vetoes the SDK's six known non-argument identities: `ErrParseError`, `ErrInvalidRequest`, `ErrMethodNotFound`, `ErrInternalError`, `ErrRequestInterrupted` and `ErrResourceNotFound`. This negative guard retains the original wrapper and response even if the cause contains schema-validation wording. It adds no positive `ErrInvalidParams` recognition and leaves the classifier and its regexes unchanged.
+
 ## Guarantees
 
 - **Zero happy-path cost (SC-006)**: the schema is built only on the error branch. Successful
