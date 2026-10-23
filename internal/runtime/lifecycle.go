@@ -1418,6 +1418,7 @@ func (r *Runtime) LoadConfiguredServers(cfg *config.Config) error {
 			storedServer.URL != serverCfg.URL ||
 			storedServer.Command != serverCfg.Command ||
 			storedServer.Protocol != serverCfg.Protocol ||
+			storedServer.ToolArgumentErrorMode != serverCfg.ToolArgumentErrorMode ||
 			oauthChanged ||
 			exposePromptsChanged
 

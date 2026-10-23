@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/smart-mcp-proxy/mcpproxy-go/internal/config"
+
 	"go.etcd.io/bbolt"
 	"go.etcd.io/bbolt/errors"
 	"go.uber.org/zap"
@@ -215,6 +217,9 @@ func (b *BoltDB) SetSchemaVersion(version uint64) error {
 
 // SaveUpstream saves an upstream server record
 func (b *BoltDB) SaveUpstream(record *UpstreamRecord) error {
+	if err := config.ValidateToolArgumentErrorMode(record.ToolArgumentErrorMode); err != nil {
+		return err
+	}
 	record.Updated = time.Now()
 
 	return b.db.Update(func(tx *bbolt.Tx) error {
@@ -235,6 +240,9 @@ func (b *BoltDB) SaveUpstream(record *UpstreamRecord) error {
 // the read and the write. It reports whether the guard kept the quarantine.
 // An undecodable previous record is overwritten, as SaveUpstream would.
 func (b *BoltDB) SaveUpstreamKeepingQuarantine(record *UpstreamRecord, explicit bool) (kept bool, err error) {
+	if err := config.ValidateToolArgumentErrorMode(record.ToolArgumentErrorMode); err != nil {
+		return false, err
+	}
 	record.Updated = time.Now()
 
 	err = b.db.Update(func(tx *bbolt.Tx) error {
