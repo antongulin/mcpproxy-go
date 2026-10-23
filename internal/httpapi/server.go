@@ -2727,8 +2727,6 @@ func (s *Server) handlePatchServer(w http.ResponseWriter, r *http.Request) {
 	if req.ToolArgumentErrorMode != "" {
 		updates.ToolArgumentErrorMode = req.ToolArgumentErrorMode
 		hasUpdates = true
-	} else if existingSrv != nil {
-		updates.ToolArgumentErrorMode = existingSrv.ToolArgumentErrorMode
 	}
 
 	if req.URL != "" {

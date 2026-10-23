@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"testing"
 	"time"
 
+	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smart-mcp-proxy/mcpproxy-go/internal/config"
@@ -135,6 +137,102 @@ func TestArgumentPrivacyClassificationControls(t *testing.T) {
 			redacted := p.createToolErrorResponse(tc.err, "private", "check", config.ToolArgumentErrorModeRedacted)
 			require.Equal(t, detailed, redacted, "noneligible errors retain their complete established response")
 			require.NotContains(t, decodeErrorBody(t, redacted), "input_schema")
+		})
+	}
+}
+
+// CI-PLAN-02: independently check the existing credential rules at each typed
+// legacy publishing sink. Nonargument diagnostics survive every policy.
+func TestArgumentPrivacyLegacyCredentialRedaction(t *testing.T) {
+	p := newArgumentPrivacyUnitProxy(t)
+	const urlSecret = "fixture-url-credential-123456"
+	const textSecret = "fixture-text-credential-123456"
+	const authSecret = "fixture-authorization-123456"
+	httpError := &transport.HTTPError{
+		StatusCode: 401, URL: "https://fixture.invalid/mcp?token=" + urlSecret + "&region=west",
+		Method: "POST", Body: "safe body diagnostic token=" + textSecret,
+	}
+	data := map[string]interface{}{
+		"headers":    map[string]interface{}{"Authorization": "Bearer " + authSecret},
+		"diagnostic": "safe structured diagnostic",
+	}
+	for _, tc := range []struct {
+		name    string
+		err     error
+		rpc     bool
+		hasHTTP bool
+	}{
+		{"http401", httpError, false, true},
+		{"rpc_internal", &transport.JSONRPCError{Code: -32603, Message: "safe message diagnostic token=" + textSecret, Data: data}, true, false},
+		{"rpc_internal_http401", &transport.JSONRPCError{Code: -32603, Message: "safe message diagnostic token=" + textSecret, Data: data, HTTPError: httpError}, true, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, eligible := classifyUpstreamInvalidParams(tc.err)
+			require.False(t, eligible)
+			for _, mode := range []string{"legacy", "", "detailed", "redacted"} {
+				t.Run("mode="+mode, func(t *testing.T) {
+					var result *mcp.CallToolResult
+					if mode == "legacy" {
+						result = p.createDetailedErrorResponse(tc.err, "renderer", "probe")
+					} else {
+						result = p.createToolErrorResponse(tc.err, "renderer", "probe", mode)
+					}
+					require.True(t, result.IsError)
+					serialized, err := json.Marshal(result)
+					require.NoError(t, err)
+					for _, secret := range []string{urlSecret, textSecret, authSecret} {
+						require.NotContains(t, string(serialized), secret)
+					}
+					body := decodeErrorBody(t, result)
+					require.NotContains(t, body, "input_schema")
+					require.NotContains(t, body, "hint")
+					message, ok := body["error"].(string)
+					require.True(t, ok)
+					require.NotContains(t, message, textSecret)
+					if tc.rpc {
+						require.Contains(t, message, "safe message diagnostic")
+						require.Equal(t, float64(-32603), body["error_code"])
+						details, ok := body["error_data"].(map[string]interface{})
+						require.True(t, ok)
+						require.Len(t, details, 2)
+						require.Equal(t, "safe structured diagnostic", details["diagnostic"])
+						headers, ok := details["headers"].(map[string]interface{})
+						require.True(t, ok)
+						require.Len(t, headers, 1)
+						require.NotEmpty(t, headers["Authorization"])
+						require.NotContains(t, headers["Authorization"], authSecret)
+					} else {
+						require.Contains(t, message, "HTTP 401")
+						require.Contains(t, message, "safe body diagnostic")
+						require.NotContains(t, body, "error_code")
+						require.NotContains(t, body, "error_data")
+					}
+					if tc.hasHTTP {
+						details, ok := body["http_details"].(map[string]interface{})
+						require.True(t, ok)
+						require.Equal(t, float64(401), details["status_code"])
+						require.Contains(t, details["response_body"], "safe body diagnostic")
+						require.NotContains(t, details["response_body"], textSecret)
+						redactedURL, ok := details["server_url"].(string)
+						require.True(t, ok)
+						u, err := url.Parse(redactedURL)
+						require.NoError(t, err)
+						require.Equal(t, "https", u.Scheme)
+						require.Equal(t, "fixture.invalid", u.Host)
+						require.Equal(t, "/mcp", u.Path)
+						require.Equal(t, "west", u.Query().Get("region"))
+						require.NotEmpty(t, u.Query().Get("token"))
+						require.NotEqual(t, urlSecret, u.Query().Get("token"))
+						require.Contains(t, body["troubleshooting"], "Authentication required")
+						if !tc.rpc {
+							require.Equal(t, "POST", details["method"])
+						}
+					} else {
+						require.NotContains(t, body, "http_details")
+						require.NotContains(t, body, "troubleshooting")
+					}
+				})
+			}
 		})
 	}
 }
