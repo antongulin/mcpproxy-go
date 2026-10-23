@@ -1,0 +1,60 @@
+name: Robin
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review]
+  issue_comment:
+    types: [created]
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    if: |
+      (
+        github.event_name == 'pull_request' &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        github.actor != 'dependabot[bot]' &&
+        github.event.pull_request.user.login != 'dependabot[bot]'
+      ) ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request &&
+        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) &&
+        (
+          contains(fromJSON('["/review", "/robin", "/summary", "/help"]'), github.event.comment.body) ||
+          startsWith(github.event.comment.body, '/review ') ||
+          startsWith(github.event.comment.body, format('/review{0}', fromJSON('"\t"'))) ||
+          startsWith(github.event.comment.body, format('/review{0}', fromJSON('"\n"'))) ||
+          startsWith(github.event.comment.body, format('/review{0}', fromJSON('"\r"'))) ||
+          startsWith(github.event.comment.body, '/robin ') ||
+          startsWith(github.event.comment.body, format('/robin{0}', fromJSON('"\t"'))) ||
+          startsWith(github.event.comment.body, format('/robin{0}', fromJSON('"\n"'))) ||
+          startsWith(github.event.comment.body, format('/robin{0}', fromJSON('"\r"'))) ||
+          startsWith(github.event.comment.body, '/summary ') ||
+          startsWith(github.event.comment.body, format('/summary{0}', fromJSON('"\t"'))) ||
+          startsWith(github.event.comment.body, format('/summary{0}', fromJSON('"\n"'))) ||
+          startsWith(github.event.comment.body, format('/summary{0}', fromJSON('"\r"'))) ||
+          startsWith(github.event.comment.body, '/help ') ||
+          startsWith(github.event.comment.body, format('/help{0}', fromJSON('"\t"'))) ||
+          startsWith(github.event.comment.body, format('/help{0}', fromJSON('"\n"'))) ||
+          startsWith(github.event.comment.body, format('/help{0}', fromJSON('"\r"')))
+        )
+      )
+    concurrency:
+      group: robin-${{ github.event.pull_request.number || github.event.issue.number }}-${{ github.workflow }}
+      cancel-in-progress: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Robin
+        uses: antongulin/robin@3c3c2adf29f06277761f827c64ee9d08d90c00c6 # v2.12.3
+        with:
+          github-token: ${{ github.token }}
+          llm-api-key: ${{ secrets.LLM_API_KEY }}
+          llm-base-url: ${{ secrets.LLM_BASE_URL }}
+          model: ${{ secrets.LLM_MODEL }}
+          request-changes: "false"
